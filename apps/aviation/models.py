@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class Airline(models.Model):
     name = models.CharField(max_length=255)
@@ -20,7 +21,7 @@ class Airplane(models.Model):
     )
     name = models.CharField(max_length=100)
     tail_number = models.CharField(max_length=10, unique=True)
-    capacity = models.PositiveIntegerField()
+    capacity = models.PositiveIntegerField(validators = [MinValueValidator(1), MaxValueValidator(400)])
 
     def __str__(self):
         return f"{self.name} - {self.tail_number}"
