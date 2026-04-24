@@ -11,6 +11,11 @@ class City(models.Model):
     name = models.CharField(max_length=100)
     country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name='cities')
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'country'], name='unique_city_name_per_country')
+        ]
+
     def __str__(self):
         return f"{self.name} {self.country.name}"
 
@@ -20,4 +25,4 @@ class Airport(models.Model):
     city = models.ForeignKey(City, on_delete=models.CASCADE, related_name='airports')
 
     def __str__(self):
-        return f"{self.name} {self.city.code}"
+        return f"{self.name} {self.code}"

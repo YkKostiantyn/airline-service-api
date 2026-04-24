@@ -15,5 +15,11 @@ class Ticket(models.Model):
                               choices=TicketStatus.choices,
                               default=TicketStatus.BOOKED)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['flight', 'seat_number'],
+                                    name='unique_ticket'),
+        ]
+
     def __str__(self):
         return f"{self.user}: {self.seat_number}, {self.status}"
