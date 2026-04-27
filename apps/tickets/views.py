@@ -6,7 +6,7 @@ from .serializers import TicketSerializer
 # Create your views here.
 class TicketViewSet(ModelViewSet):
     queryset = Ticket.objects.select_related(
-        'user',
+        'order__user',
         'flight',
         "flight__departure_airport",
         "flight__arrival_airport",

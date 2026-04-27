@@ -1,4 +1,5 @@
 from django.db import models
+from apps.orders.models import Order
 
 # Create your models here.
 class TicketStatus(models.TextChoices):
@@ -8,8 +9,8 @@ class TicketStatus(models.TextChoices):
     USED = "used", "Used"
 
 class Ticket(models.Model):
-    user = models.ForeignKey('users.User', on_delete=models.PROTECT, related_name='tickets')
     flight = models.ForeignKey('flights.Flight', on_delete=models.PROTECT, related_name='tickets')
+    order = models.ForeignKey('orders.Order', on_delete=models.PROTECT, related_name='tickets', null = True, blank=True)
     seat_number = models.CharField(max_length=20)
     status = models.CharField(max_length=20,
                               choices=TicketStatus.choices,
@@ -22,4 +23,7 @@ class Ticket(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user}: {self.seat_number}, {self.status}"
+        if self.order:
+            return f"{self.order.user}: {self.seat_number}, {self.status}"
+
+        return f"No order: {self.seat_number}, {self.status}"
