@@ -4,13 +4,13 @@ from apps.flights.models import FlightStatus, Flight
 
 
 class TicketSerializer(serializers.ModelSerializer):
-    user_username = serializers.CharField(source='user.username', read_only=True)
+    user_username = serializers.CharField(source='order.user.username', read_only=True)
     flight_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
-        fields = ['id', 'user','user_username' ,'flight','flight_info' ,'seat_number', 'status']
-        read_only_fields = ['id']
+        fields = ['id',"order",'user_username' ,'flight','flight_info' ,'seat_number', 'status']
+        read_only_fields = ['id', 'order']
 
     def get_flight_info(self, obj):
         return f"{obj.flight.departure_airport} -- {obj.flight.arrival_airport}"
@@ -31,8 +31,10 @@ class TicketSerializer(serializers.ModelSerializer):
         if flight and flight.status == FlightStatus.CANCELLED:
             raise serializers.ValidationError("Can't create a ticket for cancelled flight")
 
+        #check whether the ticket is on this flight and seat
         queryset = Ticket.objects.filter(flight = flight ,seat_number=seat_number)
 
+        #check without current seat(for put\patch)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
 

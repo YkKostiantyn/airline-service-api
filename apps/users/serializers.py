@@ -29,3 +29,4 @@ class CreateUserSerializer(serializers.ModelSerializer):
     def validate_username(self, validate_data):
         if not validate_data or not validate_data.strip():
             raise serializers.ValidationError('Username should not be empty')
+        return validate_data
