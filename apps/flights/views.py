@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 from .serializers import FlightSerializer
 from .models import Flight
-from apps.permission.permissions import ReadOnlyOrAdmin
+from apps.common.permissions import ReadOnlyOrAdmin
 # Create your views here.
 
 class FlightViewSet(ModelViewSet):

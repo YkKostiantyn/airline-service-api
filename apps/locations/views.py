@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.viewsets import ModelViewSet
 from .models import Country,City, Airport
 from .serializers import CountrySerializer, CitySerializer, AirportSerializer
-from apps.permission.permissions import ReadOnlyOrAdmin
+from apps.common.permissions import ReadOnlyOrAdmin
 
 # Create your views here.
 class CountryViewSet(ModelViewSet):

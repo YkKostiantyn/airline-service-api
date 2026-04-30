@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from .serializers import AirplaneSerializer, AirlineSerializer
 from .models import Airplane, Airline
-from apps.permission.permissions import ReadOnlyOrAdmin
+from apps.common.permissions import ReadOnlyOrAdmin
 
 # Create your views here.
 class AirplaneListCreateAPIView(ListCreateAPIView):
