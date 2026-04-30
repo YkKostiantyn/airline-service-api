@@ -3,11 +3,16 @@ from .models import User
 from .serializers import UserSerializer, CreateUserSerializer
 from rest_framework.permissions import AllowAny, IsAdminUser
 from .permissions import IsAdminRole, IsSelfOrAdmin
-
 # Create your views here.
 
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
+
+    filterset_fields = ["role"]
+    search_fields = ["username", "first_name", "last_name", "email"]
+    ordering_fields = ["id", "username", "email", "first_name", "last_name"]
+    ordering = ["id"]
+
 
     def get_serializer_class(self):
         if self.action == 'create':
