@@ -9,7 +9,7 @@ class TicketSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ticket
-        fields = ['id',"order",'user_username' ,'flight','flight_info' ,'seat_number', 'status']
+        fields = ['id',"order",'user_username' ,'flight','flight_info' ,'seat_number', 'status', 'price']
         read_only_fields = ['id', 'order']
 
     def get_flight_info(self, obj):

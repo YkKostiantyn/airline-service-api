@@ -8,7 +8,17 @@ load_dotenv()
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',') if not DEBUG else []
+ALLOWED_HOSTS = [
+    "127.0.0.1",
+    "localhost",
+    "monument-cilantro-state.ngrok-free.dev",
+]
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://127.0.0.1:3000")
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -32,6 +42,7 @@ LOCAL_APPS = [
     "apps.flights",
     "apps.tickets",
     "apps.orders",
+    "apps.payments.apps.PaymentsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS

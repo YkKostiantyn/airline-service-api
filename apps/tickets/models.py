@@ -15,6 +15,7 @@ class Ticket(models.Model):
     status = models.CharField(max_length=20,
                               choices=TicketStatus.choices,
                               default=TicketStatus.BOOKED)
+    price = models.PositiveIntegerField(default=0)
 
     class Meta:
         constraints = [
