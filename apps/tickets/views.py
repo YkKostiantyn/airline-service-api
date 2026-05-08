@@ -8,6 +8,12 @@ class TicketViewSet(ModelViewSet):
     serializer_class = TicketSerializer
     permission_classes = [IsTicketOwnerOrAdmin]
 
+    filterset_fields = ["order", "flight", "status", "seat_number"]
+    search_fields = ["seat_number", "flight__departure_airport__name", "flight__arrival_airport__name",
+                     "flight__departure_airport__city", "flight__arrival_airport__city"]
+    ordering_fields = ["id", "seat_number", "status"]
+    ordering = ["id"]
+
     def get_queryset(self):
         queryset = Ticket.objects.select_related(
             "order__user",
