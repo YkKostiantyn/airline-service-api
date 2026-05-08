@@ -12,6 +12,9 @@ from apps.common.pagination import StandardResultsSetPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 
+from ..users.models import UserRole
+
+
 # Create your views here.
 
 class OrderListCreateAPIView(APIView):
@@ -26,7 +29,6 @@ class OrderListCreateAPIView(APIView):
     filterset_fields = ["status", "user"]
 
     search_fields = [
-        "user__username",
         "user__email",
         "user__first_name",
         "user__last_name",
@@ -46,7 +48,7 @@ class OrderListCreateAPIView(APIView):
         queryset = Order.objects.select_related("user")
         user = self.request.user
 
-        if getattr(user, "role", None) == "admin":
+        if getattr(user, "role", None) == UserRole.ADMIN:
             return queryset.all()
 
         return queryset.filter(user=user)

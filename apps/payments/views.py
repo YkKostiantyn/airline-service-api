@@ -15,6 +15,8 @@ from apps.orders.models import OrderStatus
 from apps.payments.models import Payment, PaymentStatus
 from apps.payments.serializers import CreateCheckoutSessionSerializer
 from apps.tickets.models import TicketStatus
+import time
+from django.db import transaction
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
@@ -64,6 +66,12 @@ class CreateCheckoutSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if payment.status == PaymentStatus.PENDING:
+            payment.amount = order.total_amount
+            payment.currency = order.currency
+            payment.user = request.user
+            payment.save(update_fields=["amount", "currency", "user", "updated_at"])
+
         checkout_session = stripe.checkout.Session.create(
             mode="payment",
             payment_method_types=["card"],
@@ -74,13 +82,14 @@ class CreateCheckoutSessionView(APIView):
                         "product_data": {
                             "name": f"Airline order #{order.id}",
                         },
-                        "unit_amount": payment.amount,
+                        "unit_amount": payment.amount * 100,
                     },
                     "quantity": 1,
                 }
             ],
             success_url=f"{settings.FRONTEND_URL}/payments/success/",
             cancel_url=f"{settings.FRONTEND_URL}/payments/cancel/",
+            expires_at=int(time.time()) + 30 * 60,
             metadata={
                 "payment_id": str(payment.id),
                 "order_id": str(order.id),
@@ -135,32 +144,26 @@ def stripe_webhook(request):
         if not payment_id:
             return HttpResponse("Payment id not found in metadata", status=400)
 
-        payment = (
-            Payment.objects
-            .select_related("order")
-            .filter(id=payment_id)
-            .first()
-        )
+        payment = (Payment.objects.select_related("order").filter(id=payment_id).first())
 
         if not payment:
             return HttpResponse("Payment not found", status=404)
 
-        if payment.status != PaymentStatus.PAID:
-            payment.status = PaymentStatus.PAID
-            payment.stripe_payment_intent_id = payment_intent_id
-            payment.save(
-                update_fields=[
+        with transaction.atomic():
+            if payment.status != PaymentStatus.PAID:
+                payment.status = PaymentStatus.PAID
+                payment.stripe_payment_intent_id = payment_intent_id
+                payment.save(update_fields=[
                     "status",
                     "stripe_payment_intent_id",
                     "updated_at",
-                ]
-            )
+                ])
 
-            order = payment.order
-            order.status = OrderStatus.PAID
-            order.save(update_fields=["status"])
+                order = payment.order
+                order.status = OrderStatus.PAID
+                order.save(update_fields=["status"])
 
-            order.tickets.update(status=TicketStatus.PAID)
+                order.tickets.update(status=TicketStatus.PAID)
 
     elif event["type"] == "checkout.session.expired":
         session = event["data"]["object"]
@@ -171,21 +174,17 @@ def stripe_webhook(request):
         if not payment_id:
             return HttpResponse("Payment id not found in metadata", status=400)
 
-        payment = (
-            Payment.objects
-            .select_related("order")
-            .filter(id=payment_id)
-            .first()
-        )
+        payment = (Payment.objects.select_related("order").filter(id=payment_id).first())
 
-        if payment and payment.status == PaymentStatus.PENDING:
-            payment.status = PaymentStatus.CANCELLED
-            payment.save(update_fields=["status", "updated_at"])
+        with transaction.atomic():
+            if payment and payment.status == PaymentStatus.PENDING:
+                payment.status = PaymentStatus.CANCELLED
+                payment.save(update_fields=["status", "updated_at"])
 
-            order = payment.order
-            order.status = OrderStatus.CANCELLED
-            order.save(update_fields=["status"])
+                order = payment.order
+                order.status = OrderStatus.CANCELLED
+                order.save(update_fields=["status"])
 
-            order.tickets.update(status=TicketStatus.CANCELLED)
+                order.tickets.update(status=TicketStatus.AVAILABLE)
 
     return HttpResponse(status=200)

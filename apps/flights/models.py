@@ -9,6 +9,7 @@ class FlightStatus(models.TextChoices):
     CANCELLED = "cancelled", "Cancelled"
 
 class Flight(models.Model):
+    flight_number = models.CharField(max_length=20, unique=True)
     airplane = models.ForeignKey('aviation.Airplane', on_delete=models.PROTECT, related_name='flights')
     departure_airport = models.ForeignKey(
         'locations.Airport',
@@ -25,4 +26,4 @@ class Flight(models.Model):
     status = models.CharField(max_length=15, choices=FlightStatus.choices, default=FlightStatus.SCHEDULED)
 
     def __str__(self):
-        return f"{self.airplane}: {self.departure_airport}: {self.arrival_airport}"
+        return f"{self.flight_number}: {self.departure_airport} → {self.arrival_airport}"

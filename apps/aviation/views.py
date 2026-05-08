@@ -3,6 +3,8 @@ from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIV
 from .serializers import AirplaneSerializer, AirlineSerializer
 from .models import Airplane, Airline
 from apps.common.permissions import ReadOnlyOrAdmin
+from .models import Seat
+from .serializers import SeatSerializer
 
 # Create your views here.
 class AirplaneListCreateAPIView(ListCreateAPIView):
@@ -10,10 +12,7 @@ class AirplaneListCreateAPIView(ListCreateAPIView):
     serializer_class = AirplaneSerializer
     permission_classes = [ReadOnlyOrAdmin]
 
-    filterset_fields = [
-        "airline",
-        "capacity",
-    ]
+    filterset_fields = ["airline","capacity"]
 
     search_fields = [
         "name",
@@ -70,4 +69,29 @@ class AirlineListCreateAPIView(ListCreateAPIView):
 class AirlineRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
     queryset = Airline.objects.all()
     serializer_class = AirlineSerializer
+    permission_classes = [ReadOnlyOrAdmin]
+
+class SeatListCreateAPIView(ListCreateAPIView):
+    queryset = Seat.objects.select_related(
+        "airplane",
+        "airplane__airline",
+        "airplane__airline__base_airport",
+    ).all()
+    serializer_class = SeatSerializer
+    permission_classes = [ReadOnlyOrAdmin]
+
+    filterset_fields = ["airplane", "seat_class", "row", "number"]
+
+    search_fields = ["airplane__name", "airplane__tail_number", "airplane__airline__name"]
+
+    ordering_fields = ["id", "airplane", "row", "number", "seat_class"]
+
+    ordering = ["airplane", "row", "number"]
+class SeatRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
+    queryset = Seat.objects.select_related(
+        "airplane",
+        "airplane__airline",
+        "airplane__airline__base_airport",
+    ).all()
+    serializer_class = SeatSerializer
     permission_classes = [ReadOnlyOrAdmin]
