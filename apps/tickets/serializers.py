@@ -1,43 +1,70 @@
 from rest_framework import serializers
+
 from .models import Ticket
-from apps.flights.models import FlightStatus, Flight
+from apps.flights.models import FlightStatus
 
 
 class TicketSerializer(serializers.ModelSerializer):
-    user_username = serializers.CharField(source='order.user.username', read_only=True)
+    user_email = serializers.EmailField(source="order.user.email", read_only=True)
     flight_info = serializers.SerializerMethodField()
+    seat_label = serializers.CharField(source="seat.label", read_only=True)
 
     class Meta:
         model = Ticket
-        fields = ['id',"order",'user_username' ,'flight','flight_info' ,'seat_number', 'status']
-        read_only_fields = ['id', 'order']
+        fields = [
+            "id",
+            "order",
+            "user_email",
+            "flight",
+            "flight_info",
+            "seat",
+            "seat_label",
+            "status",
+            "price",
+        ]
+        read_only_fields = [
+            "id",
+            "order",
+            "seat_label",
+            "user_email",
+            "flight_info",
+        ]
 
     def get_flight_info(self, obj):
-        return f"{obj.flight.departure_airport} -- {obj.flight.arrival_airport}"
-
-    def validate_seat_number(self, value):
-        if not value or not value.strip():
-            raise serializers.ValidationError("Please enter a valid seat number")
-        return value.strip().upper()
+        return (
+            f"{obj.flight.departure_airport} -- "
+            f"{obj.flight.arrival_airport}"
+        )
 
     def validate(self, attrs):
-        flight = attrs.get('flight')
-        seat_number = attrs.get('seat_number')
+        flight = attrs.get("flight")
+        seat = attrs.get("seat")
 
         if self.instance:
             flight = flight or self.instance.flight
-            seat_number = seat_number or self.instance.seat_number
+            seat = seat or self.instance.seat
 
         if flight and flight.status == FlightStatus.CANCELLED:
-            raise serializers.ValidationError("Can't create a ticket for cancelled flight")
+            raise serializers.ValidationError(
+                "Can't create a ticket for cancelled flight."
+            )
 
-        #check whether the ticket is on this flight and seat
-        queryset = Ticket.objects.filter(flight = flight ,seat_number=seat_number)
+        if flight and seat and seat.airplane != flight.airplane:
+            raise serializers.ValidationError(
+                "Seat does not belong to the airplane assigned to this flight."
+            )
 
-        #check without current seat(for put\patch)
+        queryset = Ticket.objects.filter(
+            flight=flight,
+            seat=seat,
+        )
+
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
 
         if queryset.exists():
-            raise serializers.ValidationError("Ticket already exists")
+            raise serializers.ValidationError(
+                "Ticket for this flight and seat already exists."
+            )
+
         return attrs

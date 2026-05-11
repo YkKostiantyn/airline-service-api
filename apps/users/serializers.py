@@ -6,27 +6,18 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role' ,'role_display']
+        fields = ['id', 'first_name', 'last_name', 'email', 'role' ,'role_display']
         read_only_fields = ['id','role']
 
 class CreateUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'password','first_name', 'last_name', 'email']
+        fields = ['id', 'password','first_name', 'last_name', 'email']
         read_only_fields = ['id']
         extra_kwargs = {
             'password': {"write_only": True},
         }
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
-
-    def validate_username(self, validate_data):
-        if not validate_data or not validate_data.strip():
-            raise serializers.ValidationError('Username should not be empty')
-        return validate_data
+        return User.objects.create_user(**validated_data)
