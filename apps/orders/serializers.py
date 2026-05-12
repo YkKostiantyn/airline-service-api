@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.db import transaction
 from rest_framework.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .models import Order, OrderStatus
 from apps.tickets.models import Ticket, TicketStatus
@@ -149,5 +151,25 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
         order.total_amount = total_amount
         order.save(update_fields=['total_amount'])
+
+        try:
+            subject = f'Tickets successfully booked! Order #{order.id}'
+            message = (
+                f'Congratulates, {user.first_name or user.username}!\n\n'
+                f'Your flight reservation has been successfully confirmed.\n'
+                f'Number of participants: {len(tickets_to_create)}\n'
+                f'Payable: ${order.total_amount}\n\n'
+                f'Thank you for choosing our airline!'
+            )
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Failed to send email: {e}")
 
         return order
