@@ -3,8 +3,9 @@ from django.urls import path
 from .views import (AirplaneListCreateAPIView, AirlineListCreateAPIView,
                     AirplaneRetrieveUpdateDestroyAPIView,
                     AirlineRetrieveUpdateDestroyAPIView,
-                    SeatListCreateAPIView,
-                    SeatRetrieveUpdateDestroyAPIView,
+                    SeatListAPIView,
+                    SeatRetrieveAPIView,
+                    GenerateAirplaneSeatsAPIView,
                     )
 
 urlpatterns = [
@@ -12,6 +13,7 @@ urlpatterns = [
     path('airlines/<int:pk>/', AirlineRetrieveUpdateDestroyAPIView.as_view(), name='airline_detail'),
     path('airplanes/', AirplaneListCreateAPIView.as_view(), name="airplane_list_create"),
     path('airplanes/<int:pk>/', AirplaneRetrieveUpdateDestroyAPIView.as_view(), name='airplane_detail'),
-    path("seats/", SeatListCreateAPIView.as_view(), name="seat-list"),
-    path("seats/<int:pk>/", SeatRetrieveUpdateDestroyAPIView.as_view(), name="seat-detail"),
+    path("seats/", SeatListAPIView.as_view(), name="seat-list"),
+    path("seats/<int:pk>/", SeatRetrieveAPIView.as_view(), name="seat-detail"),
+    path('airplanes/<int:airplane_id>/generate-seats/', GenerateAirplaneSeatsAPIView.as_view(), name='generate-airplane-seats'),
 ]

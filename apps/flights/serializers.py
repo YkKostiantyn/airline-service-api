@@ -31,6 +31,7 @@ class FlightSerializer(serializers.ModelSerializer):
             "departure_time",
             "arrival_time",
             "status",
+            "base_price",
         ]
         read_only_fields = ["id"]
 

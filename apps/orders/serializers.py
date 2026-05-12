@@ -1,9 +1,12 @@
 from rest_framework import serializers
 from django.db import transaction
+from rest_framework.exceptions import ValidationError
 
 from .models import Order, OrderStatus
 from apps.tickets.models import Ticket, TicketStatus
 from apps.users.models import UserRole
+from apps.flights.models import Flight
+from apps.aviation.models import Seat
 
 class TicketInOrderSerializer(serializers.ModelSerializer):
     seat_label = serializers.CharField(source="seat.label", read_only=True)
@@ -21,17 +24,10 @@ class OrderListSerializer(serializers.ModelSerializer):
 class OrderDetailSerializer(serializers.ModelSerializer):
     tickets = TicketInOrderSerializer(many=True, read_only=True)
 
-    ticket_ids = serializers.PrimaryKeyRelatedField(
-        queryset=Ticket.objects.all(),
-        many=True,
-        write_only=True,
-        required=False,
-    )
-
     class Meta:
         model = Order
-        fields = ["id", "user", "status", "created_at", "tickets", "ticket_ids"]
-        read_only_fields = ["id", "created_at", "user"]
+        fields = ["id", "user", "status", "created_at", "tickets", "total_amount"]
+        read_only_fields = ["id", "created_at", "user", "total_amount"]
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -50,17 +46,12 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                 "Paid order cannot be changed."
             )
 
-        if "user" in attrs and attrs["user"] != self.instance.user:
-            raise serializers.ValidationError(
-                "You cannot change order user."
-            )
-
         if current_user and getattr(current_user, "role", None) != UserRole.ADMIN:
-            allowed_fields = {"status", "ticket_ids"}
+            allowed_fields = {"status"}
 
             if set(attrs.keys()) - allowed_fields:
                 raise serializers.ValidationError(
-                    "You can only change order status or tickets."
+                    "You can only change order status."
                 )
 
             if "status" in attrs and new_status != OrderStatus.CANCELLED:
@@ -68,100 +59,95 @@ class OrderDetailSerializer(serializers.ModelSerializer):
                     "You can only cancel your order."
                 )
 
-            if "ticket_ids" in attrs and old_status != OrderStatus.PENDING:
-                raise serializers.ValidationError(
-                    "You can change tickets only for pending order."
-                )
-
-            if "ticket_ids" in attrs and not attrs["ticket_ids"]:
-                raise serializers.ValidationError(
-                    "Order must contain at least one ticket."
-                )
-
         return attrs
 
     def update(self, instance, validated_data):
         new_status = validated_data.get("status", instance.status)
-        new_tickets = validated_data.pop("ticket_ids", None)
 
         with transaction.atomic():
-            if new_status == OrderStatus.CANCELLED:
+            if new_status == OrderStatus.CANCELLED and instance.status != OrderStatus.CANCELLED:
                 instance.status = OrderStatus.CANCELLED
                 instance.save(update_fields=["status"])
 
-                instance.tickets.update(order=None, status=TicketStatus.AVAILABLE)
-
-                return instance
-
-            if new_tickets is not None:
-                new_ticket_ids = [ticket.id for ticket in new_tickets]
-
-                locked_tickets = Ticket.objects.select_for_update().filter(
-                    id__in=new_ticket_ids,
-                )
-
-                if locked_tickets.count() != len(new_ticket_ids):
-                    raise serializers.ValidationError(
-                        "Some tickets do not exist."
-                    )
-
-                unavailable_tickets = locked_tickets.exclude(order__isnull=True,).exclude(order=instance)
-
-                if unavailable_tickets.exists():
-                    raise serializers.ValidationError(
-                        "Some tickets are already ordered."
-                    )
-
-                instance.tickets.exclude(
-                    id__in=new_ticket_ids,
-                ).update(order=None, status=TicketStatus.AVAILABLE)
-
-                locked_tickets.update(order=instance, status=TicketStatus.BOOKED)
-
-            instance.status = new_status
-            instance.save(update_fields=["status"])
+                instance.tickets.all().delete()
 
         return instance
 
-
 class OrderCreateSerializer(serializers.ModelSerializer):
-    tickets = serializers.PrimaryKeyRelatedField(
-        queryset=Ticket.objects.filter(order__isnull=True),
-        many=True,
-        write_only=True,
+    flight_id = serializers.IntegerField(write_only=True)
+    seat_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, min_length=1
     )
 
     class Meta:
         model = Order
-        fields = ["id", "tickets"]
-        read_only_fields = ["id"]
+        fields = ['id', 'flight_id', 'seat_ids', 'status', 'total_amount']
+        read_only_fields = ['status', 'total_amount']
 
-    def validate_tickets(self, value):
-        if not value:
-            raise serializers.ValidationError(
-                "At least one ticket is required."
-            )
+    def validate(self, attrs):
+        flight_id = attrs.get('flight_id')
+        seat_ids = attrs.get('seat_ids')
 
-        return value
+        try:
+            flight = Flight.objects.get(id=flight_id)
+        except Flight.DoesNotExist:
+            raise ValidationError({"flight_id": "Flight not found."})
 
+        valid_seats_count = Seat.objects.filter(
+            airplane=flight.airplane,
+            id__in=seat_ids
+        ).count()
+
+        if valid_seats_count != len(set(seat_ids)):
+            raise ValidationError({"seat_ids": "Some seats do not exist in this airplane."})
+
+        attrs['flight'] = flight
+        return attrs
+
+    @transaction.atomic
     def create(self, validated_data):
-        tickets = validated_data.pop("tickets")
-        user = self.context["request"].user
-        ticket_ids = [ticket.id for ticket in tickets]
+        flight = validated_data.pop('flight')
+        seat_ids = validated_data.pop('seat_ids')
+        user = self.context['request'].user
 
-        with transaction.atomic():
-            locked_tickets = Ticket.objects.select_for_update().filter(
-                id__in=ticket_ids,
-                order__isnull=True,
-            )
+        locked_seats = Seat.objects.select_for_update().filter(id__in=seat_ids)
 
-            if locked_tickets.count() != len(ticket_ids):
-                raise serializers.ValidationError(
-                    "Some tickets are already ordered."
-                )
+        existing_tickets = Ticket.objects.filter(
+            flight=flight,
+            seat__in=locked_seats,
+            status__in=[TicketStatus.PAID, TicketStatus.BOOKED]
+        )
 
-            order = Order.objects.create(user=user, status=OrderStatus.PENDING)
+        if existing_tickets.exists():
+            raise ValidationError({"seat_ids": "Sorry, some of these seats were just booked by someone else."})
 
-            locked_tickets.update(order=order, status=TicketStatus.BOOKED)
+        order = Order.objects.create(user=user, status=OrderStatus.PENDING)
+
+        tickets_to_create = []
+        total_amount = 0
+
+        for seat in locked_seats:
+            base_price = flight.base_price or 0
+
+            if seat.seat_class == Seat.SeatClass.FIRST:
+                ticket_price = base_price * 3
+            elif seat.seat_class == Seat.SeatClass.BUSINESS:
+                ticket_price = base_price * 2
+            else:
+                ticket_price = base_price
+
+            tickets_to_create.append(Ticket(
+                flight=flight,
+                seat=seat,
+                order=order,
+                price=ticket_price,
+                status=TicketStatus.BOOKED
+            ))
+            total_amount += ticket_price
+
+        Ticket.objects.bulk_create(tickets_to_create)
+
+        order.total_amount = total_amount
+        order.save(update_fields=['total_amount'])
 
         return order

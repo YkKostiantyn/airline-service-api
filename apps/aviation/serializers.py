@@ -37,3 +37,6 @@ class SeatSerializer(serializers.ModelSerializer):
             "seat_class",
         ]
         read_only_fields = ["id", "seat_label", "airplane_name", "tail_number"]
+
+class SeatGenerationSerializer(serializers.Serializer):
+    seats_per_row = serializers.IntegerField(default=6)

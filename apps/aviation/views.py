@@ -1,10 +1,18 @@
-from django.shortcuts import render
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from .serializers import AirplaneSerializer, AirlineSerializer
 from .models import Airplane, Airline
 from apps.common.permissions import ReadOnlyOrAdmin
 from .models import Seat
 from .serializers import SeatSerializer
+from .serializers import SeatGenerationSerializer
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 # Create your views here.
 class AirplaneListCreateAPIView(ListCreateAPIView):
@@ -71,7 +79,7 @@ class AirlineRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
     serializer_class = AirlineSerializer
     permission_classes = [ReadOnlyOrAdmin]
 
-class SeatListCreateAPIView(ListCreateAPIView):
+class SeatListAPIView(ListAPIView):
     queryset = Seat.objects.select_related(
         "airplane",
         "airplane__airline",
@@ -87,7 +95,7 @@ class SeatListCreateAPIView(ListCreateAPIView):
     ordering_fields = ["id", "airplane", "row", "number", "seat_class"]
 
     ordering = ["airplane", "row", "number"]
-class SeatRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
+class SeatRetrieveAPIView(RetrieveAPIView):
     queryset = Seat.objects.select_related(
         "airplane",
         "airplane__airline",
@@ -95,3 +103,61 @@ class SeatRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
     ).all()
     serializer_class = SeatSerializer
     permission_classes = [ReadOnlyOrAdmin]
+
+
+class GenerateAirplaneSeatsAPIView(APIView):
+    permission_classes = [ReadOnlyOrAdmin]
+
+    @extend_schema(
+        request=SeatGenerationSerializer,
+        responses={201: OpenApiTypes.OBJECT},
+        summary="Generate seats for a specific airplane based on its capacity"
+    )
+    def post(self, request, airplane_id):
+        airplane = get_object_or_404(Airplane, id=airplane_id)
+
+        if airplane.seats.exists():
+            return Response(
+                {"detail": "Seats for this airplane are already generated."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = SeatGenerationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        seats_per_row = serializer.validated_data['seats_per_row']
+
+        capacity = airplane.capacity
+        if not capacity or capacity <= 0:
+            return Response(
+                {"detail": "Airplane capacity must be greater than 0 to generate seats."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        seats_to_create = []
+        created_count = 0
+        row = 1
+
+        while created_count < capacity:
+            for number in range(1, seats_per_row + 1):
+                if created_count >= capacity:
+                    break
+
+                seat_class = Seat.SeatClass.BUSINESS if row <= 3 else Seat.SeatClass.ECONOMY
+
+                seats_to_create.append(
+                    Seat(
+                        airplane=airplane,
+                        row=row,
+                        number=number,
+                        seat_class=seat_class
+                    )
+                )
+                created_count += 1
+            row += 1
+
+        Seat.objects.bulk_create(seats_to_create)
+
+        return Response(
+            {"detail": f"Successfully generated {len(seats_to_create)} seats for airplane {airplane.tail_number}."},
+            status=status.HTTP_201_CREATED
+        )
