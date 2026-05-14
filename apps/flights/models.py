@@ -24,6 +24,7 @@ class Flight(models.Model):
     departure_time = models.DateTimeField()
     arrival_time = models.DateTimeField()
     status = models.CharField(max_length=15, choices=FlightStatus.choices, default=FlightStatus.SCHEDULED)
+    base_price = models.PositiveIntegerField(default=0, help_text="Base price ticket for this flight")
 
     def __str__(self):
         return f"{self.flight_number}: {self.departure_airport} → {self.arrival_airport}"
