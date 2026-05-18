@@ -14,10 +14,17 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    container_name: airport_redis_container
+    restart: always
+    ports:
+      - "6379:6379"
+
   backend:
     build: .
     container_name: airport_backend_container
-    command: sh -c "python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     volumes:
       - .:/app
     ports:
@@ -26,6 +33,7 @@ services:
       - .env
     depends_on:
       - db
+      - redis
 
 volumes:
   postgres_data:
