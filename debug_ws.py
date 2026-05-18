@@ -13,7 +13,7 @@ async def chat():
 
         greeting = await websocket.recv()
 
-        print(f"\n🤖 AI: {json.loads(greeting)['message']}")
+        print(f"\nAI: {json.loads(greeting)['message']}")
 
         while True:
 
@@ -28,7 +28,7 @@ async def chat():
 
             response = await websocket.recv()
 
-            print(f"\n🤖 AI: {json.loads(response)['message']}")
+            print(f"\nAI: {json.loads(response)['message']}")
 
 
 asyncio.run(chat())

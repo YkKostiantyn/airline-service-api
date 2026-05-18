@@ -11,21 +11,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
 
-        # Підключаємо інструменти (tools)
         self.model = genai.GenerativeModel(
             model_name="gemini-2.5-flash",
-            tools=tools_list,  # ПЕРЕДАЄМО НАШІ ФУНКЦІЇ СЮДИ
+            tools=tools_list,
             system_instruction=(
-                "Ти — офіційний ШІ-асистент Airline Service. "
-                "Використовуй інструменти для пошуку реальних рейсів у нашій базі. "
-                "Якщо в базі немає рейсів, так і кажи. Не вигадуй рейси самостійно. "
-                "Відповідай тільки по темі авіаперевезень нашого проєкту."
+                "You are the official AI assistant of Airline Service. "
+                "Use tools to search for real flights in our database. "
+                "If there are no flights in the database, clearly say so. "
+                "Do not invent flights yourself. "
+                "Respond only to topics related to the airline services in our project."
             )
         )
         self.chat_session = self.model.start_chat(history=[], enable_automatic_function_calling=True)
 
         await self.send(text_data=json.dumps({
-            'message': 'З’єднання встановлено. Я маю доступ до бази рейсів!'
+            'message': 'Connection established. I have access to the flight database!'
         }))
 
     async def receive(self, text_data):
@@ -33,7 +33,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user_message = data.get('message', '')
 
         try:
-            # ВИПРАВЛЕНО: Використовуємо асинхронний метод замість asyncio.to_thread
             response = await self.chat_session.send_message_async(user_message)
 
             await self.send(text_data=json.dumps({
@@ -41,8 +40,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
 
         except Exception as e:
-            # Якщо це помилка ліміту, ми побачимо її тут чітко
-            print(f"❌ Помилка в Consumer: {e}")
+            print(f"Consumer error: {e}")
             await self.send(text_data=json.dumps({
-                'message': f"Упс, виникла проблема: {str(e)}"
+                'message': f"Oops, a problem occurred: {str(e)}"
             }))
