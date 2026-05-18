@@ -18,9 +18,10 @@ from apps.tickets.models import TicketStatus
 import time
 from django.db import transaction
 
+from django.core.mail import send_mail
+from django.conf import settings
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
-
 
 class CreateCheckoutSessionView(APIView):
     permission_classes = [IsAuthenticated]
@@ -164,6 +165,22 @@ def stripe_webhook(request):
                 order.save(update_fields=["status"])
 
                 order.tickets.update(status=TicketStatus.PAID)
+
+                try:
+                    send_mail(
+                        subject=f'Payment successful! Your tickets (Order #{order.id})',
+                        message=(
+                            f'Congratulates!\n\n'
+                            f'Your order #{order.id} successfully paid.\n'
+                            f'Amount: {payment.amount} {payment.currency.upper()}.\n'
+                            f'We wish you a pleasant flight!'
+                        ),
+                        from_email=settings.EMAIL_HOST_USER,
+                        recipient_list=[payment.user.email],
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    print(f"Error sending an order letter {order.id}: {e}")
 
     elif event["type"] == "checkout.session.expired":
         session = event["data"]["object"]
