@@ -2,15 +2,14 @@ from apps.flights.models import Flight
 from apps.aviation.models import Seat
 from apps.tickets.models import Ticket
 from apps.orders.models import Order
-import os
+from asgiref.sync import sync_to_async
 
-def get_available_flights(destination_city: str = None, origin_city: str = None):
-    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-
+# ==========================================
+# 1. ПОШУК РЕЙСІВ
+# ==========================================
+def _get_available_flights(destination_city=None, origin_city=None):
     print(f"[AI CALL] Flight search: {origin_city} -> {destination_city}")
     try:
-        print(f"[AI CALL] Flight search: {origin_city} -> {destination_city}")
-
         queryset = Flight.objects.select_related('departure_airport', 'arrival_airport').all()
 
         if destination_city:
@@ -42,11 +41,16 @@ def get_available_flights(destination_city: str = None, origin_city: str = None)
         print(f"TOOLS ERROR: {str(e)}", flush=True)
         return {"error": str(e)}
 
+async def get_available_flights(destination_city: str = None, origin_city: str = None):
+    """Шукає доступні авіарейси за містом відправлення та прибуття."""
+    return await sync_to_async(_get_available_flights)(destination_city, origin_city)
 
-def get_flight_pricing_and_seats(flight_id: int):
-    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+# ==========================================
+# 2. ЦІНИ ТА МІСЦЯ
+# ==========================================
+def _get_flight_pricing_and_seats(flight_id):
     print(f"✈️ [AI CALL] Checking pricing for flight ID: {flight_id}", flush=True)
-
     try:
         flight = Flight.objects.select_related('airplane').get(id=flight_id)
         base_price = flight.base_price or 0
@@ -89,10 +93,16 @@ def get_flight_pricing_and_seats(flight_id: int):
         print(f"TOOLS ERROR: {str(e)}", flush=True)
         return {"error": str(e)}
 
-def get_order_info(order_id: int):
-    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-    print(f"✈️ [AI CALL] Checking order #{order_id}", flush=True)
+async def get_flight_pricing_and_seats(flight_id: int):
+    """Отримує інформацію про ціни та наявність вільних місць для конкретного рейсу за його ID."""
+    return await sync_to_async(_get_flight_pricing_and_seats)(flight_id)
 
+
+# ==========================================
+# 3. ІНФОРМАЦІЯ ПРО ЗАМОВЛЕННЯ
+# ==========================================
+def _get_order_info(order_id):
+    print(f"✈️ [AI CALL] Checking order #{order_id}", flush=True)
     try:
         order = Order.objects.select_related('payment').prefetch_related('tickets__seat').get(id=order_id)
 
@@ -123,4 +133,9 @@ def get_order_info(order_id: int):
     except Exception as e:
         print(f"TOOLS ERROR: {str(e)}", flush=True)
         return {"error": str(e)}
+
+async def get_order_info(order_id: int):
+    """Повертає детальну інформацію про замовлення (статус, квитки, оплату) за його ID."""
+    return await sync_to_async(_get_order_info)(order_id)
+
 tools_list = [get_available_flights, get_flight_pricing_and_seats, get_order_info]
