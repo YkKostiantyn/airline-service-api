@@ -1,18 +1,32 @@
 import os
-import json
 import google.generativeai as genai
-from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .tools import tools_list
 from adrf.views import APIView as AsyncAPIView # Використовуй adrf для асинхронних DRF views
+from rest_framework import serializers
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+class ChatRequestSerializer(serializers.Serializer):
+    message = serializers.CharField(help_text="Your message to the AI assistant")
+
 class AIChatView(AsyncAPIView):
     """
-    Ендпоінт для спілкування з ШІ через класичний HTTP POST запит.
+    Endpoint for communicating with the AI assistant through a classic HTTP POST request.
     """
+    @extend_schema(
+        request=ChatRequestSerializer,
+        responses={200: dict},
+        description="Send a message to the AI assistant",
+        examples=[
+            OpenApiExample(
+                'Example request',
+                value={'message': 'Find tickets to London'}
+            )
+        ]
+    )
     async def post(self, request):
         user_message = request.data.get('message')
         
