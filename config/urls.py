@@ -36,4 +36,6 @@ urlpatterns = [
     path("", include("apps.orders.urls")),
 
     path("payments/", include("apps.payments.urls")),
+
+    path('api/assistant/', include('apps.assistant.urls')),
 ]
