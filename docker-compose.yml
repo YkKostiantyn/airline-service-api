@@ -35,5 +35,15 @@ services:
       - db
       - redis
 
+  frontend:
+    build: 
+      context: ./frontend
+    container_name: airport_frontend_container
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
+
 volumes:
   postgres_data:
