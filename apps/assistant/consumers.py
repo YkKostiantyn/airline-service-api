@@ -19,7 +19,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "Use tools to search for real flights in our database. "
                 "If there are no flights in the database, clearly say so. "
                 "Do not invent flights yourself. "
-                "Respond only to topics related to the airline services in our project."
+                "Respond only to topics related to the airline services in our project. "
+                "CRITICAL RULE: You must always communicate and respond exclusively in English, "
+                "regardless of the user's language or the language of the provided tools."
             )
         )
         self.chat_session = self.model.start_chat(history=[], enable_automatic_function_calling=True)
